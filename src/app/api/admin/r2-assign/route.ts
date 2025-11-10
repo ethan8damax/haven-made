@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
   const file = form.get("file") as File | null;
   const userId = (form.get("userId") as string) || "";
   const clientEmail = (form.get("clientEmail") as string) || "";
+  const clientName = (form.get("clientName") as string) || "";
   const title = (form.get("title") as string) || null;
   const wedding_date = (form.get("wedding_date") as string) || null;
 
@@ -100,6 +101,17 @@ export async function POST(req: NextRequest) {
 
   if (!targetUserId) {
     return NextResponse.json({ error: "Could not resolve user" }, { status: 400 });
+  }
+
+  // If a clientName is provided, update the user's metadata with full_name
+  if (clientName) {
+    try {
+      await adminClient.auth.admin.updateUserById(targetUserId, {
+        user_metadata: { full_name: clientName },
+      });
+    } catch (e: any) {
+      // non-fatal; continue even if metadata update fails
+    }
   }
 
   // Upload to R2

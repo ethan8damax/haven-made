@@ -4,6 +4,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 
+const ADMIN_EMAILS = [
+  "ethandouglasmaxey@gmail.com",
+  "carolinejoy.mose@gmail.com",
+];
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -21,7 +26,10 @@ export default function LoginPage() {
       setError(error.message);
       return;
     }
-    router.replace("/");
+    const { data: sess } = await supabase.auth.getSession();
+    const sessEmail = sess.session?.user?.email?.toLowerCase() || "";
+    const isAdmin = ADMIN_EMAILS.map((e) => e.toLowerCase()).includes(sessEmail);
+    router.replace(isAdmin ? "/admin" : "/dashboard");
   }
 
   return (

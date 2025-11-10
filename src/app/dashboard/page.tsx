@@ -7,6 +7,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState<string>("");
+  const [firstName, setFirstName] = useState<string>("");
   const [videos, setVideos] = useState<Array<{ title: string; wedding_date: string | null; signedUrl: string | null }>>([]);
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState<string>("Your Films");
@@ -22,6 +23,8 @@ export default function DashboardPage() {
       const user = session.user;
       const name = (user.user_metadata?.full_name as string) || (user.user_metadata?.name as string) || user.email || "Friend";
       setDisplayName(name);
+      const f = (name || "").trim().split(/\s+/)[0] || "Friend";
+      setFirstName(f);
       // Fetch signed URLs for this user's videos from server
       const token = (await supabase.auth.getSession()).data.session?.access_token || "";
       const res = await fetch("/api/videos", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
@@ -50,7 +53,7 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-white text-[#0b1014]">
       <div className="mx-auto max-w-5xl px-6 pt-24">
-        <h1 className="font-serif text-3xl">Welcome, {displayName}</h1>
+        <h1 className="font-serif text-3xl">Welcome, {firstName}</h1>
         <p className="mt-2 text-black/60">Here is your dashboard.</p>
 
         <div className="mt-10">

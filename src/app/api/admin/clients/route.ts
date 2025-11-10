@@ -38,6 +38,10 @@ export async function GET(req: NextRequest) {
   const { data, error } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 100 });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const clients = (data.users || []).map((u) => ({ user_id: u.id, email: u.email || "" }));
+  const clients = (data.users || []).map((u) => {
+    const meta: any = u.user_metadata || {};
+    const name = meta.full_name || meta.name || u.email || "";
+    return { user_id: u.id, name, email: u.email || "" };
+  });
   return NextResponse.json({ clients });
 }
