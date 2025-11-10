@@ -73,31 +73,18 @@ export default function AdminPage() {
       return;
     }
 
-    const key = `client_videos/${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
+    // Post multipart data to R2 upload + assign endpoint
+    const form = new FormData();
+    form.append("file", file);
+    if (selectedUserId) form.append("userId", selectedUserId);
+    if (clientEmail) form.append("clientEmail", clientEmail);
+    if (title) form.append("title", title);
+    if (date) form.append("wedding_date", date);
 
-    // Upload file directly from browser using the user session
-    const { error: uploadError } = await supabase.storage.from("videos").upload(key, file, {
-      upsert: false,
-      contentType: file.type || undefined,
-    });
-    if (uploadError) {
-      setError(uploadError.message);
-      setSubmitting(false);
-      return;
-    }
-
-    // Call server to resolve user_id (by email if needed) and insert client_videos
-    const res = await fetch("/api/admin/assign", {
+    const res = await fetch("/api/admin/r2-assign", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify({
-        adminEmail: userEmail,
-        userId: selectedUserId || undefined,
-        clientEmail: clientEmail || undefined,
-        video_path: key,
-        title: title || null,
-        wedding_date: date || null,
-      }),
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: form,
     });
 
     if (!res.ok) {

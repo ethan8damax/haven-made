@@ -7,11 +7,9 @@ export default function DashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState<string>("");
-  const [videoUrl, setVideoUrl] = useState<string>("");
+  const [videos, setVideos] = useState<Array<{ title: string; wedding_date: string | null; signedUrl: string | null }>>([]);
   const [error, setError] = useState<string | null>(null);
-  const bucket = "videos";
-  const [title, setTitle] = useState<string>("");
-  const [weddingDate, setWeddingDate] = useState<string>("");
+  const [title, setTitle] = useState<string>("Your Films");
 
   useEffect(() => {
     (async () => {
@@ -24,27 +22,17 @@ export default function DashboardPage() {
       const user = session.user;
       const name = (user.user_metadata?.full_name as string) || (user.user_metadata?.name as string) || user.email || "Friend";
       setDisplayName(name);
-      // Fetch this user's assigned video row
-      const { data: row, error: rowError } = await supabase
-        .from("client_videos")
-        .select("video_path,title,wedding_date")
-        .eq("user_id", user.id)
-        .single();
-      if (rowError || !row) {
-        setError(rowError?.message || "No assigned video found.");
+      // Fetch signed URLs for this user's videos from server
+      const token = (await supabase.auth.getSession()).data.session?.access_token || "";
+      const res = await fetch("/api/videos", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body?.error || "Failed to load videos");
         setLoading(false);
         return;
       }
-      setTitle(row.title || "Your Film");
-      setWeddingDate(row.wedding_date || "");
-      const { data: signed, error: signError } = await supabase.storage
-        .from(bucket)
-        .createSignedUrl(row.video_path, 3600); // 1 hour expiry
-      if (signError || !signed?.signedUrl) {
-        setError(signError?.message || "Could not create signed URL for video.");
-      } else {
-        setVideoUrl(signed.signedUrl);
-      }
+      const payload = (await res.json()) as { videos: Array<{ title: string; wedding_date: string | null; signedUrl: string | null }> };
+      setVideos(payload.videos || []);
       setLoading(false);
     })();
   }, [router]);
@@ -66,33 +54,43 @@ export default function DashboardPage() {
         <p className="mt-2 text-black/60">Here is your dashboard.</p>
 
         <div className="mt-10">
-          <h2 className="text-lg font-medium">{title || "Your Film Player"}</h2>
-          {weddingDate && (
-            <p className="text-sm text-black/60 mt-1">Wedding date: {new Date(weddingDate).toLocaleDateString()}</p>
-          )}
-          {error && (
-            <p className="mt-3 text-sm text-red-600">{error}</p>
-          )}
-          {videoUrl ? (
-            <div className="mt-3">
-              <video
-                controls
-                className="w-full aspect-video rounded-xl border border-black/10 bg-black"
-                src={videoUrl}
-              />
-              <div className="mt-4">
-                <a
-                  href={videoUrl}
-                  download
-                  className="inline-flex items-center rounded-full bg-[#0b1014] text-white px-5 py-2 text-sm hover:bg-black"
-                >
-                  Download Video
-                </a>
-              </div>
+          <h2 className="text-lg font-medium">{title}</h2>
+          {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+          {videos.length === 0 ? (
+            <div className="mt-3 aspect-video w-full rounded-xl bg-[#0b1014]/5 border border-black/10 grid place-items-center text-black/50">
+              <span>No videos assigned yet.</span>
             </div>
           ) : (
-            <div className="mt-3 aspect-video w-full rounded-xl bg-[#0b1014]/5 border border-black/10 grid place-items-center text-black/50">
-              <span>Preparing your video…</span>
+            <div className="mt-6 space-y-8">
+              {videos.map((v, idx) => (
+                <div key={idx}>
+                  <p className="font-medium">{v.title}</p>
+                  {v.wedding_date && (
+                    <p className="text-sm text-black/60">Wedding date: {new Date(v.wedding_date).toLocaleDateString()}</p>
+                  )}
+                  {v.signedUrl ? (
+                    <>
+                      <video
+                        controls
+                        autoPlay
+                        className="mt-2 w-full aspect-video rounded-xl border border-black/10 bg-black"
+                        src={v.signedUrl}
+                      />
+                      <div className="mt-3">
+                        <a
+                          href={v.signedUrl}
+                          download
+                          className="inline-flex items-center rounded-full bg-[#0b1014] text-white px-5 py-2 text-sm hover:bg-black"
+                        >
+                          Download Video
+                        </a>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="mt-2 text-sm text-red-600">Unable to load this video.</p>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>
